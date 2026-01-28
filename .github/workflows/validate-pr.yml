@@ -1,0 +1,29 @@
+name: Validate PR
+
+permissions: {}
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  validate-title:
+    name: Validate PR title
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Lint title against Conventional Commits spec
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          requireScope: false
+
+  build:
+    concurrency:
+      group: build-${{ github.head_ref }}
+      cancel-in-progress: true  # only build latest commits, cancel previous in-progress builds
+    uses: ./.github/workflows/build-font.yml
+    permissions:
+      contents: read

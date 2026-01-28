@@ -1,0 +1,83 @@
+name: Build Fonts
+
+permissions: {}
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build font
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Checkout required files
+      - name: Checkout build plan repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: build-plan
+
+      - name: Read Iosevka version
+        id: iosevka_version 
+        run: |
+          VERSION=$(cat build-plan/.iosevka-version | tr -d '\n')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Iosevka repository
+        uses: actions/checkout@v6
+        with:
+          repository: be5invis/iosevka
+          ref: refs/tags/${{ steps.iosevka_version.outputs.version }}
+          path: iosevka
+
+      - name: Copy custom build plan
+        run: cp build-plan/private-build-plans.toml iosevka/private-build-plans.toml
+
+      # Set up dependencies
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: iosevka/package-lock.json
+
+      - name: Install ttfautohint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ttfautohint
+
+      - name: Restore Iosevka build cache
+        uses: actions/cache@v5
+        with:
+          path: iosevka/.build
+          key: iosevka-build-${{ steps.iosevka_version.outputs.version }}-${{ hashFiles('build-plan/private-build-plans.toml') }}
+          restore-keys: |
+            iosevka-build-${{ steps.iosevka_version.outputs.version }}-
+            iosevka-build-
+
+      # Build font files
+      - name: Build font files
+        working-directory: iosevka
+        run: |
+          npm install
+          npm run build -- ttc::IoseptaMono super-ttc::IoseptaMono
+
+      # Prepare and upload build artifacts
+      - name: Prepare font artifacts
+        run: |
+          mkdir -p artifact-staging/IoseptaMono-SuperTTC
+          mkdir -p artifact-staging/IoseptaMono-TTC
+          mv iosevka/dist/.super-ttc/*.ttc artifact-staging/IoseptaMono-SuperTTC/
+          mv iosevka/dist/.ttc/IoseptaMono/*.ttc artifact-staging/IoseptaMono-TTC/
+          for variant in iosevka/dist/IoseptaMono*; do
+            mv "$variant/TTF/" artifact-staging/"$(basename $variant)-TTF/"
+          done
+
+      - name: Upload font artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: IoseptaMono
+          path: artifact-staging/
