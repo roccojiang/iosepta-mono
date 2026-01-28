@@ -1,0 +1,45 @@
+name: Check Upstream for Iosevka Updates
+
+permissions: {}
+
+on:
+  schedule:
+    - cron: 32 4 23 * *
+  workflow_dispatch:
+
+jobs:
+  check-and-update:
+    name: Check latest Iosevka release and update font if needed
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check for upstream updates
+        id: check
+        run: bash .github/scripts/check-upstream.sh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Iosevka version file
+        if: ${{ steps.check.outputs.needs_update == 'true' }}
+        run: echo "${{ steps.check.outputs.new_version }}" > .iosevka-version
+
+      - name: Create upstream update PR
+        if: ${{ steps.check.outputs.needs_update == 'true' }}
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "${{ steps.check.outputs.commit_type }}: update to Iosevka ${{ steps.check.outputs.new_version }}"
+          branch: upstream-update-${{ steps.check.outputs.new_version }}
+          delete-branch: true
+          title: "${{ steps.check.outputs.commit_type }}: update to Iosevka ${{ steps.check.outputs.new_version }}"
+          body: |
+            Automated update to upstream Iosevka ${{ steps.check.outputs.new_version }}
+
+            **Changes:** https://github.com/be5invis/Iosevka/releases/tag/${{ steps.check.outputs.new_version }}
+
+            This PR will trigger a validation build to ensure the new version works with Iosepta Mono's custom build plan.
+          labels: upstream

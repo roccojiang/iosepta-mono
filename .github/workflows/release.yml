@@ -1,0 +1,68 @@
+name: Create Font Release
+
+permissions: {}
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-font.yml
+    permissions:
+      contents: read
+
+  release:
+    name: Create release
+    needs: build  # only release if build succeeded
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+      new_release_git_tag: ${{ steps.semantic.outputs.new_release_git_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # semantic-release needs to analyse repo history + tags
+
+      - name: Semantic release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v6
+        with:
+          extra_plugins: |
+            conventional-changelog-conventionalcommits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-assets:
+    name: Upload release assets
+    needs: [build, release]
+    if: ${{ needs.release.outputs.new_release_published == 'true' }}
+    runs-on: ubuntu-slim    
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: IoseptaMono
+          path: fonts/
+
+      - name: Package release assets
+        run: |
+          shopt -s nullglob
+          cd fonts
+          for dir in */; do
+            zip -r "../${dir%/}-v${{ needs.release.outputs.new_release_version }}.zip" "$dir"
+          done
+
+      - name: Upload to GitHub release
+        run: gh release upload ${{ needs.release.outputs.new_release_git_tag }} *.zip --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
