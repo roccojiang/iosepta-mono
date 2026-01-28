@@ -4,13 +4,16 @@ set -euo pipefail
 CURRENT=$(cat .iosevka-version | tr -d '\n')
 LATEST=$(gh api /repos/be5invis/iosevka/releases/latest --jq .tag_name)
 
+echo "Current Iosevka version: $CURRENT"
+echo "Latest Iosevka version: $LATEST"
+
 if [[ "$CURRENT" = "$LATEST" ]]; then
   echo "Already up to date"
   echo "needs_update=false" >> "$GITHUB_OUTPUT"
   exit 0
 fi
 
-echo "Iosevka update available: $CURRENT -> $LATEST"
+echo "Update available: $CURRENT -> $LATEST"
 echo "needs_update=true" >> "$GITHUB_OUTPUT"
 echo "new_version=$LATEST" >> "$GITHUB_OUTPUT"
 

@@ -8,14 +8,40 @@ on:
   workflow_dispatch:
 
 jobs:
+  release-check:
+    name: Determine if release needed
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write  # semantic-release still needs to verify git push permissions, even during a dry run
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # semantic-release needs to analyse repo history + tags
+
+      - name: Semantic release (dry run)
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v6
+        with:
+          dry_run: true
+          extra_plugins: |
+            conventional-changelog-conventionalcommits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build:
+    needs: release-check
+    if: ${{ needs.release-check.outputs.new_release_published == 'true' }}
     uses: ./.github/workflows/build-font.yml
     permissions:
       contents: read
 
   release:
     name: Create release
-    needs: build  # only release if build succeeded
+    needs: [release-check, build]  # only release if build succeeded
+    if: ${{ needs.release-check.outputs.new_release_published == 'true' }}
     runs-on: ubuntu-slim
     permissions:
       contents: write
