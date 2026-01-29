@@ -97,6 +97,7 @@ function featuresFromOverrides(parsed, variantsBlock, options = {}) {
 	if (variantsBlock) {
 		addOverrides(variantsBlock.design);
 		addOverrides(variantsBlock.upright);
+		addOverrides(variantsBlock["upright-oblique"]);
 		addOverrides(variantsBlock.italic);
 
 		const inherits = variantsBlock.inherits;
