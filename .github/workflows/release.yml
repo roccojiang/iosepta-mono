@@ -12,14 +12,14 @@ jobs:
     name: Determine if release needed
     runs-on: ubuntu-slim
     permissions:
-      contents: write  # semantic-release still needs to verify git push permissions, even during a dry run
+      contents: write # semantic-release still needs to verify git push permissions, even during a dry run
     outputs:
       new_release_published: ${{ steps.semantic.outputs.new_release_published }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # semantic-release needs to analyse repo history + tags
+          fetch-depth: 0 # semantic-release needs to analyse repo history + tags
 
       - name: Semantic release (dry run)
         id: semantic
@@ -41,7 +41,7 @@ jobs:
 
   release:
     name: Create release
-    needs: [release-check, build]  # only release if build succeeded
+    needs: [release-check, build] # only release if build succeeded
     if: ${{ needs.release-check.outputs.new_release_published == 'true' }}
     runs-on: ubuntu-slim
     permissions:
@@ -56,7 +56,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # semantic-release needs to analyse repo history + tags
+          fetch-depth: 0 # semantic-release needs to analyse repo history + tags
 
       - name: Semantic release
         id: semantic
@@ -73,7 +73,7 @@ jobs:
     name: Upload release assets
     needs: [build, release]
     if: ${{ needs.release.outputs.new_release_published == 'true' }}
-    runs-on: ubuntu-slim    
+    runs-on: ubuntu-slim
     permissions:
       contents: write
     steps:

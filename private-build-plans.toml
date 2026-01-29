@@ -72,11 +72,11 @@ exportGlyphNames = false  # set to true if Kitty ligature support is needed
   inherits = "default-calt"
   enables = [
     "counter-arrow-l", "counter-arrow-r",  # >>=, etc.
-	"brack-bar",  # [| |]
-	"logic",  # /\ and \/
+	  "brack-bar",  # [| |]
+	  "logic",  # /\ and \/
   ]
   disables = [
-	"llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
+	  "llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
   ]
 
 
@@ -133,11 +133,11 @@ variants.inherits = "buildPlans.IoseptaMono"
   inherits = "default-calt"
   enables = [
     "counter-arrow-l", "counter-arrow-r",  # >>=, etc.
-	"brack-bar",  # [| |]
-	"logic",  # /\ and \/
+	  "brack-bar",  # [| |]
+	  "logic",  # /\ and \/
   ]
   disables = [
-	"llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
+	  "llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
   ]
 
 

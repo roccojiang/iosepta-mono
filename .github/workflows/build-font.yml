@@ -21,7 +21,7 @@ jobs:
           path: build-plan
 
       - name: Read Iosevka version
-        id: iosevka_version 
+        id: iosevka_version
         run: |
           VERSION=$(cat build-plan/.iosevka-version | tr -d '\n')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
