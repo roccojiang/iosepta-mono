@@ -6,10 +6,10 @@ noCvSs = true  # disables cv##/ss## features for decreased file size
 exportGlyphNames = false  # set to true if Kitty ligature support is needed
 
   [buildPlans.IoseptaMono.namingOverride]
+  version = "1.1.0"
   description = "Custom Iosevka font build, largely based off Input Mono."
   urlVendor = "https://github.com/roccojiang/iosepta-mono"
   urlDesigner = "https://typeof.net/Iosevka/"
-  version = "1.1.0"
 
   # Override xHeight to be slightly taller than the default 520
   [buildPlans.IoseptaMono.metricOverride]
@@ -95,10 +95,10 @@ slopes.inherits   = "buildPlans.IoseptaMono"
 variants.inherits = "buildPlans.IoseptaMono"
 
   [buildPlans.IoseptaMonoNoLig.namingOverride]
+  version = "1.1.0"
   description = "Custom Iosevka font build, largely based off Input Mono."
   urlVendor = "https://github.com/roccojiang/iosepta-mono"
   urlDesigner = "https://typeof.net/Iosevka/"
-  version = "1.1.0"
 
   # Same xHeight as above
   [buildPlans.IoseptaMonoNoLig.metricOverride]
@@ -119,10 +119,10 @@ slopes.inherits   = "buildPlans.IoseptaMono"
 variants.inherits = "buildPlans.IoseptaMono"
 
   [buildPlans.IoseptaMonoTerm.namingOverride]
+  version = "1.1.0"
   description = "Custom Iosevka font build, largely based off Input Mono."
   urlVendor = "https://github.com/roccojiang/iosepta-mono"
   urlDesigner = "https://typeof.net/Iosevka/"
-  version = "1.1.0"
 
   # Same xHeight as above
   [buildPlans.IoseptaMonoTerm.metricOverride]
