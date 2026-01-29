@@ -63,12 +63,6 @@ const parsed = VariantDataParser.parse(varDatRaw, {
 	},
 });
 
-// Mock para objects for slope resolution
-const mockPara = {
-	upright: {},
-	italic: { isItalic: true },
-};
-
 function featuresFromOverrides(parsed, variantsBlock, options = {}) {
 	const features = {};
 	const skipTags = options.skipTags instanceof Set
@@ -111,92 +105,56 @@ function featuresFromOverrides(parsed, variantsBlock, options = {}) {
 	return features;
 }
 
-function collectHotChars(variants, para, ...composites) {
-	const hot = new Map();
-	for (const composite of composites) {
-		if (!composite) continue;
-		for (const [prime, variant] of composite.decompose(para, variants.selectorTree)) {
-			if (!prime.sampler && !prime.hotChars) continue;
-			const key = `${prime.key}#${variant.key}`;
-			const chars = prime.hotChars
-				? [...prime.hotChars]
-				: / /.test(prime.sampler || "")
-					? prime.sampler.split(" ")
-					: [...prime.sampler];
-			for (const ch of chars) hot.set(ch, key);
-		}
-	}
-	return hot;
-}
+function computeHotCharsSimple(slope) {
+	// 1. Default: [default.design] + [default.<slope>]
+	const defaultCfg = { ...varDatRaw.default.design };
+	const defaultSlope = slope === "italic" ? varDatRaw.default.italic : varDatRaw.default.upright;
+	if (defaultSlope) Object.assign(defaultCfg, defaultSlope);
 
-function collectHotCharMeta(variants, para, ...composites) {
-	const hot = new Map();
-	for (const composite of composites) {
-		if (!composite) continue;
-		for (const [prime, variant] of composite.decompose(para, variants.selectorTree)) {
-			if (!prime.sampler && !prime.hotChars) continue;
-			const key = `${prime.key}#${variant.key}`;
-			const chars = prime.hotChars
-				? [...prime.hotChars]
-				: / /.test(prime.sampler || "")
-					? prime.sampler.split(" ")
-					: [...prime.sampler];
-			for (const ch of chars) {
-				hot.set(ch, {
-					key,
-					tag: prime.tag,
-					rank: variant?.rank,
-				});
+	// 2. Custom: ss18 base + build plan overrides
+	const ss18 = varDatRaw.composite.ss18;
+	const customCfg = { ...ss18.design };
+	const ss18Slope = slope === "italic" ? ss18.italic : (ss18.upright || ss18["upright-oblique"]);
+	if (ss18Slope) Object.assign(customCfg, ss18Slope);
+	const planDesign = plan.variants.design;
+	if (planDesign) Object.assign(customCfg, planDesign);
+	const planSlope = slope === "italic" ? plan.variants.italic : (plan.variants.upright || plan.variants["upright-oblique"]);
+	if (planSlope) Object.assign(customCfg, planSlope);
+
+	// 3. Diff
+	const hotChars = [];
+	const hotCharFeatures = {};
+	for (const [primeKey, variantKey] of Object.entries(customCfg)) {
+		if (defaultCfg[primeKey] === variantKey) continue;
+		const prime = parsed.primes.get(primeKey);
+		if (!prime || prime.isSpecial) continue;
+		const chars = prime.hotChars
+			? [...prime.hotChars]
+			: / /.test(prime.sampler || "")
+				? prime.sampler.split(" ")
+				: [...(prime.sampler || "")];
+		const variant = prime.variants.get(variantKey);
+		for (const ch of chars) {
+			hotChars.push(ch);
+			if (prime.tag && variant?.rank != null) {
+				hotCharFeatures[ch] = { [prime.tag]: variant.rank };
 			}
 		}
 	}
-	return hot;
+	return { hotChars, hotCharFeatures };
 }
 
-function diffHotChars(defaultHot, customHot) {
-	const out = new Set();
-	for (const [ch, key] of customHot) {
-		if (defaultHot.get(ch) !== key) out.add(ch);
-	}
-	return Array.from(out);
-}
-
-const defaultComp = parsed.defaultComposite;
-const customComp = parsed.composites.get(`buildPlans.${planName}`);
-if (!customComp) {
-	console.error(`Composite buildPlans.${planName} not found`);
-	process.exit(1);
-}
-
-const defaultUprightHot = collectHotChars(parsed, mockPara.upright, defaultComp);
-const customUprightHot = collectHotChars(parsed, mockPara.upright, defaultComp, customComp);
-const defaultItalicHot = collectHotChars(parsed, mockPara.italic, defaultComp);
-const customItalicHot = collectHotChars(parsed, mockPara.italic, defaultComp, customComp);
-
-const defaultUprightMeta = collectHotCharMeta(parsed, mockPara.upright, defaultComp);
-const customUprightMeta = collectHotCharMeta(parsed, mockPara.upright, defaultComp, customComp);
-const defaultItalicMeta = collectHotCharMeta(parsed, mockPara.italic, defaultComp);
-const customItalicMeta = collectHotCharMeta(parsed, mockPara.italic, defaultComp, customComp);
+const uprightResult = computeHotCharsSimple("upright");
+const italicResult = computeHotCharsSimple("italic");
 
 const hotChars = {
-	upright: diffHotChars(defaultUprightHot, customUprightHot),
-	italic: diffHotChars(defaultItalicHot, customItalicHot),
+	upright: uprightResult.hotChars,
+	italic: italicResult.hotChars,
 };
 
-function buildHotCharFeatures(defaultMeta, customMeta) {
-	const out = {};
-	for (const [ch, meta] of customMeta) {
-		const defaultKey = defaultMeta.get(ch)?.key;
-		if (defaultKey === meta.key) continue;
-		if (!meta.tag || meta.rank === null || meta.rank === undefined) continue;
-		out[ch] = { [meta.tag]: meta.rank };
-	}
-	return out;
-}
-
 const hotCharFeatures = {
-	upright: buildHotCharFeatures(defaultUprightMeta, customUprightMeta),
-	italic: buildHotCharFeatures(defaultItalicMeta, customItalicMeta),
+	upright: uprightResult.hotCharFeatures,
+	italic: italicResult.hotCharFeatures,
 };
 
 const textGrid = [
@@ -214,8 +172,8 @@ const overrideFeatures = featuresFromOverrides(parsed, plan.variants, {
 });
 
 const config = {
-	width: 600,
-	height: 400,
+	width: 1200,
+	height: 200,
 	fontSize: 24,
 	lineHeight: 1.25,
 	textGrid,
