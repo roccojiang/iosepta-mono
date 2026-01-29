@@ -106,13 +106,16 @@ def main():
     glyph_set = tt_font.getGlyphSet()
     upem = tt_font["head"].unitsPerEm
     ascent = tt_font["hhea"].ascent
+    os2 = tt_font["OS/2"]
+    typo_ascender = os2.sTypoAscender
+    typo_descender = os2.sTypoDescender
 
     blob = hb.Blob.from_file_path(font_path)
     face = hb.Face(blob)
     hb_font = hb.Font(face)
 
     scale = font_size / upem
-    line_height = font_size * line_height_ratio
+    line_height = (typo_ascender - typo_descender) / upem * font_size * line_height_ratio
 
     line_widths = []
     for line in lines:
