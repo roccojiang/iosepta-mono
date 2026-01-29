@@ -126,7 +126,12 @@ def main():
                 if name in glyph_set:
                     pen = SVGPathPen(glyph_set)
                     glyph_set[name].draw(pen)
-                    d = pen.getSVGPath() if hasattr(pen, "getSVGPath") else pen.getCommands()
+                    if hasattr(pen, "getSVGPath"):
+                        d = pen.getSVGPath()
+                    else:
+                        d = pen.getCommands()
+                        if isinstance(d, (list, tuple)):
+                            d = " ".join(d)
                     if d:
                         tx = x + g["x_offset"] * scale
                         ty = y - g["y_offset"] * scale
