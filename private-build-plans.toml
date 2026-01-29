@@ -65,7 +65,6 @@ exportGlyphNames = false  # set to true if Kitty ligature support is needed
   brace = "curly-flat-boundary"
   number-sign = "upright"
   percent = "rings-segmented-slash"
-  bar = "force-upright"
   lig-ltgteq = "slanted"
 
 
