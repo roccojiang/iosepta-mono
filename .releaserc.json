@@ -13,6 +13,19 @@
         "preset": "conventionalcommits"
       }
     ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "sed -i.bak 's/version = \"[0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*\"/version = \"${nextRelease.version}\"/' private-build-plans.toml && rm -f private-build-plans.toml.bak"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["private-build-plans.toml"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ],
     "@semantic-release/github"
   ]
 }
