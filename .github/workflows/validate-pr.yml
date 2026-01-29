@@ -25,7 +25,7 @@ jobs:
     needs: validate-title
     concurrency:
       group: build-${{ github.head_ref }}
-      cancel-in-progress: true  # only build latest commits, cancel previous in-progress builds
+      cancel-in-progress: true # only build latest commits, cancel previous in-progress builds
     uses: ./.github/workflows/build-font.yml
     permissions:
       contents: read

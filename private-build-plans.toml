@@ -5,6 +5,12 @@ serifs = "sans"
 noCvSs = true  # disables cv##/ss## features for decreased file size
 exportGlyphNames = false  # set to true if Kitty ligature support is needed
 
+  [buildPlans.IoseptaMono.namingOverride]
+  version = "1.1.0"
+  description = "Custom Iosevka font build, largely based off Input Mono."
+  urlVendor = "https://github.com/roccojiang/iosepta-mono"
+  urlDesigner = "https://typeof.net/Iosevka/"
+
   # Override xHeight to be slightly taller than the default 520
   [buildPlans.IoseptaMono.metricOverride]
   xHeight = 540
@@ -66,11 +72,11 @@ exportGlyphNames = false  # set to true if Kitty ligature support is needed
   inherits = "default-calt"
   enables = [
     "counter-arrow-l", "counter-arrow-r",  # >>=, etc.
-	"brack-bar",  # [| |]
-	"logic",  # /\ and \/
+	  "brack-bar",  # [| |]
+	  "logic",  # /\ and \/
   ]
   disables = [
-	"llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
+	  "llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
   ]
 
 
@@ -87,6 +93,12 @@ weights.inherits  = "buildPlans.IoseptaMono"
 widths.inherits   = "buildPlans.IoseptaMono"
 slopes.inherits   = "buildPlans.IoseptaMono"
 variants.inherits = "buildPlans.IoseptaMono"
+
+  [buildPlans.IoseptaMonoNoLig.namingOverride]
+  version = "1.1.0"
+  description = "Custom Iosevka font build, largely based off Input Mono."
+  urlVendor = "https://github.com/roccojiang/iosepta-mono"
+  urlDesigner = "https://typeof.net/Iosevka/"
 
   # Same xHeight as above
   [buildPlans.IoseptaMonoNoLig.metricOverride]
@@ -106,6 +118,12 @@ widths.inherits   = "buildPlans.IoseptaMono"
 slopes.inherits   = "buildPlans.IoseptaMono"
 variants.inherits = "buildPlans.IoseptaMono"
 
+  [buildPlans.IoseptaMonoTerm.namingOverride]
+  version = "1.1.0"
+  description = "Custom Iosevka font build, largely based off Input Mono."
+  urlVendor = "https://github.com/roccojiang/iosepta-mono"
+  urlDesigner = "https://typeof.net/Iosevka/"
+
   # Same xHeight as above
   [buildPlans.IoseptaMonoTerm.metricOverride]
   xHeight = 540
@@ -115,11 +133,11 @@ variants.inherits = "buildPlans.IoseptaMono"
   inherits = "default-calt"
   enables = [
     "counter-arrow-l", "counter-arrow-r",  # >>=, etc.
-	"brack-bar",  # [| |]
-	"logic",  # /\ and \/
+	  "brack-bar",  # [| |]
+	  "logic",  # /\ and \/
   ]
   disables = [
-	"llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
+	  "llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
   ]
 
 
