@@ -34,21 +34,45 @@ def shape_run(hb_font, text, features):
     return glyphs
 
 
-def split_runs(line, hot_set):
+def build_runs(line, hot_set, hot_feature_map, base_features, legacy_hot_features):
     runs = []
     cur = ""
-    cur_hot = None
+    cur_key = None
+    cur_hot = False
+    cur_features = None
+
     for ch in line:
         is_hot = ch in hot_set
-        if cur_hot is None or cur_hot == is_hot:
-            cur_hot = is_hot
-            cur += ch
+        if hot_feature_map:
+            if is_hot:
+                char_features = {
+                    **base_features,
+                    **hot_feature_map.get(ch, {}),
+                    "calt": 1,
+                }
+            else:
+                char_features = {"calt": 1}
         else:
-            runs.append((cur, cur_hot))
+            if is_hot:
+                char_features = {**legacy_hot_features, "calt": 1}
+            else:
+                char_features = {"calt": 1}
+
+        key = tuple(sorted(char_features.items()))
+        if cur_key is None or cur_key == key:
+            cur += ch
+            cur_hot = cur_hot or is_hot
+            cur_features = char_features
+            cur_key = key
+        else:
+            runs.append((cur, cur_hot, cur_features))
             cur = ch
             cur_hot = is_hot
+            cur_features = char_features
+            cur_key = key
+
     if cur:
-        runs.append((cur, cur_hot))
+        runs.append((cur, cur_hot, cur_features))
     return runs
 
 
@@ -71,6 +95,9 @@ def main():
     hot_chars = set(config["hotChars"].get(slope, []))
     text_grid = config["textGrid"]
     lines = [row[0] + "    " + row[1] for row in text_grid]
+    base_features = config.get("baseFeatures", {})
+    hot_feature_map = config.get("hotCharFeatures", {}).get(slope, {})
+    legacy_hot_features = config.get("features", {})
 
     font_size = config["fontSize"]
     line_height_ratio = config["lineHeight"]
@@ -87,19 +114,23 @@ def main():
     scale = font_size / upem
     line_height = font_size * line_height_ratio
 
-    features_hot = {**config.get("features", {}), "calt": 1}
-    features_base = {"calt": 1}
-
     line_widths = []
     for line in lines:
         width = 0
-        for text, is_hot in split_runs(line, hot_chars):
-            feats = features_hot if is_hot else features_base
+        for text, _, feats in build_runs(
+            line,
+            hot_chars,
+            hot_feature_map,
+            base_features,
+            legacy_hot_features,
+        ):
             glyphs = shape_run(hb_font, text, feats)
             width += sum(g["x_advance"] for g in glyphs) * scale
         line_widths.append(width)
 
-    width = config["width"]
+    pad_x = 40
+    max_line_width = max(line_widths) if line_widths else 0
+    width = max(config["width"], max_line_width + pad_x * 2)
     height = config["height"]
 
     block_height = len(lines) * line_height
@@ -117,8 +148,13 @@ def main():
 
     for i, line in enumerate(lines):
         x = (width - line_widths[i]) / 2
-        for text, is_hot in split_runs(line, hot_chars):
-            feats = features_hot if is_hot else features_base
+        for text, is_hot, feats in build_runs(
+            line,
+            hot_chars,
+            hot_feature_map,
+            base_features,
+            legacy_hot_features,
+        ):
             glyphs = shape_run(hb_font, text, feats)
             color = theme["stress"] if is_hot else theme["body"]
             for g in glyphs:

@@ -129,6 +129,30 @@ function collectHotChars(variants, para, ...composites) {
 	return hot;
 }
 
+function collectHotCharMeta(variants, para, ...composites) {
+	const hot = new Map();
+	for (const composite of composites) {
+		if (!composite) continue;
+		for (const [prime, variant] of composite.decompose(para, variants.selectorTree)) {
+			if (!prime.sampler && !prime.hotChars) continue;
+			const key = `${prime.key}#${variant.key}`;
+			const chars = prime.hotChars
+				? [...prime.hotChars]
+				: / /.test(prime.sampler || "")
+					? prime.sampler.split(" ")
+					: [...prime.sampler];
+			for (const ch of chars) {
+				hot.set(ch, {
+					key,
+					tag: prime.tag,
+					rank: variant?.rank,
+				});
+			}
+		}
+	}
+	return hot;
+}
+
 function diffHotChars(defaultHot, customHot) {
 	const out = new Set();
 	for (const [ch, key] of customHot) {
@@ -149,9 +173,30 @@ const customUprightHot = collectHotChars(parsed, mockPara.upright, defaultComp, 
 const defaultItalicHot = collectHotChars(parsed, mockPara.italic, defaultComp);
 const customItalicHot = collectHotChars(parsed, mockPara.italic, defaultComp, customComp);
 
+const defaultUprightMeta = collectHotCharMeta(parsed, mockPara.upright, defaultComp);
+const customUprightMeta = collectHotCharMeta(parsed, mockPara.upright, defaultComp, customComp);
+const defaultItalicMeta = collectHotCharMeta(parsed, mockPara.italic, defaultComp);
+const customItalicMeta = collectHotCharMeta(parsed, mockPara.italic, defaultComp, customComp);
+
 const hotChars = {
 	upright: diffHotChars(defaultUprightHot, customUprightHot),
 	italic: diffHotChars(defaultItalicHot, customItalicHot),
+};
+
+function buildHotCharFeatures(defaultMeta, customMeta) {
+	const out = {};
+	for (const [ch, meta] of customMeta) {
+		const defaultKey = defaultMeta.get(ch)?.key;
+		if (defaultKey === meta.key) continue;
+		if (!meta.tag || meta.rank === null || meta.rank === undefined) continue;
+		out[ch] = { [meta.tag]: meta.rank };
+	}
+	return out;
+}
+
+const hotCharFeatures = {
+	upright: buildHotCharFeatures(defaultUprightMeta, customUprightMeta),
+	italic: buildHotCharFeatures(defaultItalicMeta, customItalicMeta),
 };
 
 const textGrid = [
@@ -174,6 +219,8 @@ const config = {
 	fontSize: 24,
 	lineHeight: 1.25,
 	textGrid,
+	baseFeatures,
+	hotCharFeatures,
 	features: {
 		...baseFeatures,
 		...overrideFeatures,
