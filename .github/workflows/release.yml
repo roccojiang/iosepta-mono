@@ -93,3 +93,17 @@ jobs:
         run: gh release upload ${{ needs.release.outputs.new_release_git_tag }} *.zip --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-homebrew-tap:
+    name: Notify Homebrew tap
+    needs: [release, upload-assets]
+    if: ${{ needs.release.outputs.new_release_published == 'true' }}
+    runs-on: ubuntu-slim
+    steps:
+      - name: Trigger tap update
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_DISPATCH_TOKEN }}
+          repository: roccojiang/homebrew-tap
+          event-type: iosepta-mono-release
+          client-payload: '{"version": "${{ needs.release.outputs.new_release_version }}"}'
