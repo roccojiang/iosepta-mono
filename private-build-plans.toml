@@ -141,9 +141,34 @@ variants.inherits = "buildPlans.IoseptaMono"
   ]
 
 
+# Terminal spacing, without ligatures
+[buildPlans.IoseptaMonoTermNoLig]
+family = "Iosepta Mono Term NoLig"
+spacing = "fixed"
+serifs = "sans"
+noCvSs = true
+exportGlyphNames = false
+
+weights.inherits  = "buildPlans.IoseptaMono"
+widths.inherits   = "buildPlans.IoseptaMono"
+slopes.inherits   = "buildPlans.IoseptaMono"
+variants.inherits = "buildPlans.IoseptaMono"
+
+  [buildPlans.IoseptaMonoTermNoLig.namingOverride]
+  version = "1.1.1"
+  description = "Custom Iosevka font build, largely based off Input Mono."
+  urlVendor = "https://github.com/roccojiang/iosepta-mono"
+  urlDesigner = "https://typeof.net/Iosevka/"
+
+  # Same xHeight as above
+  [buildPlans.IoseptaMonoTermNoLig.metricOverride]
+  xHeight = 540
+
+
 [collectPlans.IoseptaMono]
 from = [
   "IoseptaMono",
   "IoseptaMonoNoLig",
-  "IoseptaMonoTerm"
+  "IoseptaMonoTerm",
+  "IoseptaMonoTermNoLig"
 ]
