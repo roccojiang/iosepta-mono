@@ -2,7 +2,6 @@
 """Renders outline SVGs from a sample config JSON and a TTF font.
 
 Usage: render-outline-svg.py <config.json> <font.ttf> <slope> <out.svg>
-
 Theme is selected by output filename: '.light.svg' or '.dark.svg'.
 """
 
@@ -14,6 +13,43 @@ import xml.etree.ElementTree as ET
 import uharfbuzz as hb
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.ttLib import TTFont
+
+
+def shape_run(hb_font, text, features):
+    buf = hb.Buffer()
+    buf.add_str(text)
+    buf.guess_segment_properties()
+    hb.shape(hb_font, buf, features)
+    glyphs = []
+    for info, pos in zip(buf.glyph_infos, buf.glyph_positions):
+        glyph_name = hb_font.glyph_to_string(info.codepoint)
+        glyphs.append(
+            {
+                "glyph_name": glyph_name,
+                "x_advance": pos.x_advance,
+                "x_offset": pos.x_offset,
+                "y_offset": pos.y_offset,
+            }
+        )
+    return glyphs
+
+
+def split_runs(line, hot_set):
+    runs = []
+    cur = ""
+    cur_hot = None
+    for ch in line:
+        is_hot = ch in hot_set
+        if cur_hot is None or cur_hot == is_hot:
+            cur_hot = is_hot
+            cur += ch
+        else:
+            runs.append((cur, cur_hot))
+            cur = ch
+            cur_hot = is_hot
+    if cur:
+        runs.append((cur, cur_hot))
+    return runs
 
 
 def main():
@@ -29,137 +65,91 @@ def main():
     with open(config_path) as f:
         config = json.load(f)
 
-    # Determine theme from output filename
     basename = os.path.basename(out_path)
-    if ".dark." in basename:
-        theme = config["themes"]["dark"]
-    else:
-        theme = config["themes"]["light"]
+    theme = config["themes"]["dark"] if ".dark." in basename else config["themes"]["light"]
 
     hot_chars = set(config["hotChars"].get(slope, []))
     text_grid = config["textGrid"]
+    lines = [row[0] + "    " + row[1] for row in text_grid]
+
     font_size = config["fontSize"]
     line_height_ratio = config["lineHeight"]
 
-    # Load font with fonttools for glyph outlines
     tt_font = TTFont(font_path)
     glyph_set = tt_font.getGlyphSet()
     upem = tt_font["head"].unitsPerEm
+    ascent = tt_font["hhea"].ascent
 
-    # Load font with HarfBuzz for shaping
     blob = hb.Blob.from_file_path(font_path)
     face = hb.Face(blob)
     hb_font = hb.Font(face)
 
     scale = font_size / upem
     line_height = font_size * line_height_ratio
-    pad_x = 40
-    pad_y = 40
 
-    # Compute SVG dimensions based on actual shaping
-    # First pass: shape all lines to find max width
-    max_width = 0
-    shaped_lines = []
-    for line_text in text_grid:
-        shaped = shape_line(hb_font, line_text, config.get("features", []))
-        shaped_lines.append((line_text, shaped))
-        line_width = sum(info["x_advance"] for info in shaped) * scale
-        max_width = max(max_width, line_width)
+    features_hot = {**config.get("features", {}), "calt": 1}
+    features_base = {"calt": 1}
 
-    width = max_width + pad_x * 2
-    height = len(text_grid) * line_height + pad_y * 2
+    line_widths = []
+    for line in lines:
+        width = 0
+        for text, is_hot in split_runs(line, hot_chars):
+            feats = features_hot if is_hot else features_base
+            glyphs = shape_run(hb_font, text, feats)
+            width += sum(g["x_advance"] for g in glyphs) * scale
+        line_widths.append(width)
 
-    # Build SVG
+    width = config["width"]
+    height = config["height"]
+
+    block_height = len(lines) * line_height
+    y = (height - block_height) / 2 + ascent * scale
+
     svg_ns = "http://www.w3.org/2000/svg"
     ET.register_namespace("", svg_ns)
     svg = ET.Element(
         "svg",
         xmlns=svg_ns,
-        width=str(round(width)),
-        height=str(round(height)),
-        viewBox=f"0 0 {round(width)} {round(height)}",
+        width=str(width),
+        height=str(height),
+        viewBox=f"0 0 {width} {height}",
     )
 
-    # Background
-    ET.SubElement(
-        svg,
-        "rect",
-        width="100%",
-        height="100%",
-        fill=theme["background"],
-    )
-
-    # Render each line
-    for line_idx, (line_text, shaped) in enumerate(shaped_lines):
-        # Center line block vertically
-        baseline_y = pad_y + (line_idx + 0.75) * line_height
-
-        cursor_x = pad_x
-        char_idx = 0
-        for info in shaped:
-            # Map back to source character
-            ch = line_text[info["cluster"]] if info["cluster"] < len(line_text) else ""
-            is_hot = ch in hot_chars
+    for i, line in enumerate(lines):
+        x = (width - line_widths[i]) / 2
+        for text, is_hot in split_runs(line, hot_chars):
+            feats = features_hot if is_hot else features_base
+            glyphs = shape_run(hb_font, text, feats)
             color = theme["stress"] if is_hot else theme["body"]
-
-            glyph_name = info["glyph_name"]
-            x_advance = info["x_advance"] * scale
-            x_offset = info["x_offset"] * scale
-            y_offset = info["y_offset"] * scale
-
-            if glyph_name in glyph_set:
-                glyph = glyph_set[glyph_name]
-                pen = SVGPathPen(glyph_set)
-                glyph.draw(pen)
-                path_data = pen.getCommands()
-                if path_data:
-                    # Transform: translate to position, flip Y (font coords are Y-up)
-                    tx = cursor_x + x_offset
-                    ty = baseline_y - y_offset
-                    ET.SubElement(
-                        svg,
-                        "path",
-                        d=path_data,
-                        fill=color,
-                        transform=f"translate({tx:.1f},{ty:.1f}) scale({scale:.6f},{-scale:.6f})",
-                    )
-
-            cursor_x += x_advance
-            char_idx += 1
+            for g in glyphs:
+                name = g["glyph_name"]
+                if name in glyph_set:
+                    pen = SVGPathPen(glyph_set)
+                    glyph_set[name].draw(pen)
+                    if hasattr(pen, "getSVGPath"):
+                        d = pen.getSVGPath()
+                    else:
+                        d = pen.getCommands()
+                    if d:
+                        tx = x + g["x_offset"] * scale
+                        ty = y - g["y_offset"] * scale
+                        ET.SubElement(
+                            svg,
+                            "path",
+                            d=d,
+                            fill=color,
+                            transform=(
+                                f"translate({tx:.3f},{ty:.3f}) "
+                                f"scale({scale:.6f},{-scale:.6f})"
+                            ),
+                        )
+                x += g["x_advance"] * scale
+        y += line_height
 
     tree = ET.ElementTree(svg)
     ET.indent(tree, space="  ")
     tree.write(out_path, xml_declaration=True, encoding="unicode")
     print(f"Wrote {out_path}")
-
-
-def shape_line(hb_font, text, features):
-    """Shape a line of text with HarfBuzz and return glyph info."""
-    buf = hb.Buffer()
-    buf.add_str(text)
-    buf.guess_segment_properties()
-
-    # Apply OpenType features as dict: {tag: True}
-    feature_dict = {feat: True for feat in features}
-
-    hb.shape(hb_font, buf, feature_dict)
-
-    infos = buf.glyph_infos
-    positions = buf.glyph_positions
-    result = []
-    for info, pos in zip(infos, positions):
-        glyph_name = hb_font.glyph_to_string(info.codepoint)
-        result.append(
-            {
-                "glyph_name": glyph_name,
-                "cluster": info.cluster,
-                "x_advance": pos.x_advance,
-                "y_advance": pos.y_advance,
-                "x_offset": pos.x_offset,
-                "y_offset": pos.y_offset,
-            }
-        )
-    return result
 
 
 if __name__ == "__main__":
