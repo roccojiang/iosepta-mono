@@ -28,6 +28,8 @@ jobs:
           dry_run: true
           extra_plugins: |
             conventional-changelog-conventionalcommits
+            @semantic-release/exec
+            @semantic-release/git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
