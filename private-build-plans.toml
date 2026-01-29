@@ -68,17 +68,6 @@ exportGlyphNames = false  # set to true if Kitty ligature support is needed
   bar = "force-upright"
   lig-ltgteq = "slanted"
 
-  [buildPlans.IoseptaMono.ligations]
-  inherits = "default-calt"
-  enables = [
-    "counter-arrow-l", "counter-arrow-r",  # >>=, etc.
-	  "brack-bar",  # [| |]
-	  "logic",  # /\ and \/
-  ]
-  disables = [
-	  "llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
-  ]
-
 
 # Normal spacing, without ligatures
 [buildPlans.IoseptaMonoNoLig]
@@ -127,18 +116,6 @@ variants.inherits = "buildPlans.IoseptaMono"
   # Same xHeight as above
   [buildPlans.IoseptaMonoTerm.metricOverride]
   xHeight = 540
-
-  # Same ligations as above
-  [buildPlans.IoseptaMonoTerm.ligations]
-  inherits = "default-calt"
-  enables = [
-    "counter-arrow-l", "counter-arrow-r",  # >>=, etc.
-	  "brack-bar",  # [| |]
-	  "logic",  # /\ and \/
-  ]
-  disables = [
-	  "llggeq",  # allows <<= and >>= to use their "counter-arrow-" forms
-  ]
 
 
 # Terminal spacing, without ligatures
