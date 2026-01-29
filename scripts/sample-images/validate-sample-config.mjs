@@ -20,7 +20,18 @@ try {
 const errors = [];
 
 if (!Array.isArray(data.textGrid) || data.textGrid.length === 0) {
-	errors.push("textGrid must be a non-empty array of strings");
+	errors.push("textGrid must be a non-empty array of [left,right] rows");
+} else {
+	for (const row of data.textGrid) {
+		if (!Array.isArray(row) || row.length !== 2) {
+			errors.push("each textGrid row must be an array of two strings");
+			break;
+		}
+		if (row.some(cell => typeof cell !== "string")) {
+			errors.push("each textGrid cell must be a string");
+			break;
+		}
+	}
 }
 if (!data.hotChars || typeof data.hotChars !== "object") {
 	errors.push("hotChars must be an object");
@@ -31,8 +42,21 @@ if (!data.hotChars || typeof data.hotChars !== "object") {
 		}
 	}
 }
-if (!Array.isArray(data.features) || data.features.length === 0) {
-	errors.push("features must be a non-empty array");
+if (!data.features || typeof data.features !== "object" || Array.isArray(data.features)) {
+	errors.push("features must be an object of tag -> numeric value");
+} else {
+	const entries = Object.entries(data.features);
+	if (entries.length === 0) errors.push("features must not be empty");
+	for (const [tag, value] of entries) {
+		if (typeof tag !== "string" || tag.length !== 4) {
+			errors.push(`feature tag "${tag}" must be a 4-char string`);
+			break;
+		}
+		if (typeof value !== "number" || !Number.isFinite(value)) {
+			errors.push(`feature value for "${tag}" must be a number`);
+			break;
+		}
+	}
 }
 for (const key of ["width", "height", "fontSize", "lineHeight"]) {
 	if (typeof data[key] !== "number" || data[key] <= 0) {
