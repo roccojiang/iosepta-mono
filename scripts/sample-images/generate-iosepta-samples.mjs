@@ -8,6 +8,8 @@ import { createRequire } from "node:module";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
+import { featuresFromOverrides } from "./feature-utils.mjs";
+
 const { values: args } = parseArgs({
 	options: {
 		"iosevka-dir": { type: "string" },
@@ -95,23 +97,6 @@ function diffHotChars(defaultHot, customHot) {
 	return Array.from(out);
 }
 
-function featuresFromOverrides(variantsBlock) {
-	const features = {};
-	const addOverrides = obj => {
-		if (!obj) return;
-		for (const [primeKey, variantKey] of Object.entries(obj)) {
-			const prime = parsed.primes.get(primeKey);
-			const variant = prime?.variants.get(variantKey);
-			if (!prime?.tag || !variant?.rank) continue;
-			features[prime.tag] = variant.rank;
-		}
-	};
-	addOverrides(variantsBlock.design);
-	addOverrides(variantsBlock.upright);
-	addOverrides(variantsBlock.italic);
-	return features;
-}
-
 const defaultComp = parsed.defaultComposite;
 const customComp = parsed.composites.get(`buildPlans.${planName}`);
 if (!customComp) {
@@ -136,6 +121,13 @@ const textGrid = [
 	["g9q¶ Þẞðþſß ΓΔΛαβγδηθικλμνξπτυφχψ", "ЖЗКНРУЭЯавжзклмнруфчьыэя <= != =="],
 ];
 
+const baseFeatures = {
+	ss18: 1,
+};
+const overrideFeatures = featuresFromOverrides(parsed, plan.variants, {
+	skipTags: new Set(Object.keys(baseFeatures)),
+});
+
 const config = {
 	width: 600,
 	height: 400,
@@ -143,8 +135,8 @@ const config = {
 	lineHeight: 1.25,
 	textGrid,
 	features: {
-		ss18: 1,
-		...featuresFromOverrides(plan.variants),
+		...baseFeatures,
+		...overrideFeatures,
 	},
 	hotChars,
 	themes: {
