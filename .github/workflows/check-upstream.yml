@@ -41,5 +41,7 @@ jobs:
 
             **Changes:** https://github.com/be5invis/Iosevka/releases/tag/${{ steps.check.outputs.new_version }}
 
-            This PR will trigger a validation build to ensure the new version works with Iosepta Mono's custom build plan.
+            ---
+
+            This PR was automatically created in response to a new Iosevka release.
           labels: upstream
