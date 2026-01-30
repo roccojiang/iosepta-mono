@@ -4,9 +4,9 @@
 
 import fs from "fs";
 import path from "path";
-import { createRequire } from "node:module";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
+import * as toml from "@iarna/toml";
 
 // Types for parsed TOML structures
 interface VariantsBlock {
@@ -71,9 +71,7 @@ interface VariantDataParser {
 	): ParsedVariantData;
 }
 
-interface TomlParser {
-	parse(input: string): unknown;
-}
+
 
 interface HotCharsResult {
 	hotChars: string[];
@@ -106,11 +104,7 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	// Resolve dependencies from the Iosevka directory
-	const iosevkaRequire = createRequire(
-		path.join(path.resolve(iosevkaDir), "package.json"),
-	);
-	const toml: TomlParser = iosevkaRequire("@iarna/toml");
+	// Import Iosevka's variant parser
 	const VariantDataParser: VariantDataParser = await import(
 		pathToFileURL(
 			path.join(path.resolve(iosevkaDir), "packages", "param", "src", "variant.mjs"),

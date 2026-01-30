@@ -12,6 +12,9 @@ echo "==> Cloning Iosevka ${IOSEVKA_VERSION}..."
 git clone --depth 1 --branch "${IOSEVKA_VERSION}" \
     https://github.com/be5invis/Iosevka.git /tmp/iosevka
 
+echo "==> Installing Iosevka dependencies..."
+cd /tmp/iosevka && npm ci --ignore-scripts
+
 echo "==> Downloading base fonts..."
 DOWNLOAD_URL="https://github.com/be5invis/Iosevka/releases/download/${IOSEVKA_VERSION}/PkgTTF-Iosevka-${IOSEVKA_VERSION#v}.zip"
 curl -fsSL "${DOWNLOAD_URL}" -o /tmp/iosevka-fonts.zip
