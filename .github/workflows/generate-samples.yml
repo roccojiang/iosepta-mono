@@ -1,0 +1,57 @@
+name: Generate Sample Images
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .iosevka-version
+      - private-build-plans.toml
+      - scripts/sample-images/**
+
+permissions: {}
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build sample generator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: scripts/sample-images/Dockerfile
+          load: true
+          tags: iosepta-samples:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate samples
+        run: |
+          docker run --rm -v "$PWD/images:/out" iosepta-samples:local
+
+      - name: Create PR with updated samples
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: update sample images"
+          title: "chore: update sample images"
+          body: |
+            Automated update of Iosepta sample images.
+            
+            Triggered by changes to:
+            - `.iosevka-version`
+            - `private-build-plans.toml`
+            - `scripts/sample-images/**`
+          branch: update-samples
+          delete-branch: true
+          add-paths: |
+            images/*
