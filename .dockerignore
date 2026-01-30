@@ -1,0 +1,25 @@
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+iosevka/
+base-fonts/
+sample-work/
+images/base-fonts/
+
+# IDE
+.vscode/
+.idea/
+
+# Docs (not needed in image)
+docs/
+README.md
+LICENSE.md
+
+# GitHub
+.github/
+
+# Node modules (installed fresh in container)
+node_modules/
+scripts/sample-images/node_modules/
