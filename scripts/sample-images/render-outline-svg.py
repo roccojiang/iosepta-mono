@@ -34,42 +34,83 @@ def shape_run(hb_font, text, features):
     return glyphs
 
 
-def build_runs(line, hot_set, hot_feature_map, base_features, legacy_hot_features):
+def build_runs(line, hot_set, hot_feature_map, base_features, legacy_hot_features, hot_tokens=None, hot_token_features=None):
     runs = []
+    hot_tokens = hot_tokens or []
+    hot_token_features = hot_token_features or {}
+
+    i = 0
     cur = ""
     cur_key = None
     cur_hot = False
     cur_features = None
 
-    for ch in line:
-        is_hot = ch in hot_set
-        if hot_feature_map:
-            if is_hot:
+    while i < len(line):
+        # Try longest hot token first
+        matched_token = None
+        for tok in hot_tokens:  # Already sorted by descending length
+            if line[i:i+len(tok)] == tok:
+                matched_token = tok
+                break
+
+        if matched_token:
+            # Entire token is hot, use token's features
+            if hot_feature_map:
                 char_features = {
                     **base_features,
-                    **hot_feature_map.get(ch, {}),
+                    **hot_token_features.get(matched_token, {}),
                     "calt": 1,
                 }
             else:
-                char_features = {"calt": 1}
-        else:
-            if is_hot:
                 char_features = {**legacy_hot_features, "calt": 1}
-            else:
-                char_features = {"calt": 1}
 
-        key = tuple(sorted(char_features.items()))
-        if cur_key is None or cur_key == key:
-            cur += ch
-            cur_hot = cur_hot or is_hot
-            cur_features = char_features
-            cur_key = key
+            key = tuple(sorted(char_features.items()))
+            if cur_key is None or cur_key == key:
+                cur += matched_token
+                cur_hot = True
+                cur_features = char_features
+                cur_key = key
+            else:
+                runs.append((cur, cur_hot, cur_features))
+                cur = matched_token
+                cur_hot = True
+                cur_features = char_features
+                cur_key = key
+
+            i += len(matched_token)
         else:
-            runs.append((cur, cur_hot, cur_features))
-            cur = ch
-            cur_hot = is_hot
-            cur_features = char_features
-            cur_key = key
+            # Fall back to single-character matching
+            ch = line[i]
+            is_hot = ch in hot_set
+            if hot_feature_map:
+                if is_hot:
+                    char_features = {
+                        **base_features,
+                        **hot_feature_map.get(ch, {}),
+                        "calt": 1,
+                    }
+                else:
+                    char_features = {"calt": 1}
+            else:
+                if is_hot:
+                    char_features = {**legacy_hot_features, "calt": 1}
+                else:
+                    char_features = {"calt": 1}
+
+            key = tuple(sorted(char_features.items()))
+            if cur_key is None or cur_key == key:
+                cur += ch
+                cur_hot = cur_hot or is_hot
+                cur_features = char_features
+                cur_key = key
+            else:
+                runs.append((cur, cur_hot, cur_features))
+                cur = ch
+                cur_hot = is_hot
+                cur_features = char_features
+                cur_key = key
+
+            i += 1
 
     if cur:
         runs.append((cur, cur_hot, cur_features))
@@ -93,6 +134,8 @@ def main():
     theme = config["themes"]["dark"] if ".dark." in basename else config["themes"]["light"]
 
     hot_chars = set(config["hotChars"].get(slope, []))
+    hot_tokens = config.get("hotTokens", {}).get(slope, [])
+    hot_token_features = config.get("hotTokenFeatures", {}).get(slope, {})
     text_grid = config["textGrid"]
     lines = [row[0] + "    " + row[1] for row in text_grid]
     base_features = config.get("baseFeatures", {})
@@ -126,6 +169,8 @@ def main():
             hot_feature_map,
             base_features,
             legacy_hot_features,
+            hot_tokens=hot_tokens,
+            hot_token_features=hot_token_features
         ):
             glyphs = shape_run(hb_font, text, feats)
             width += sum(g["x_advance"] for g in glyphs) * scale
@@ -157,6 +202,8 @@ def main():
             hot_feature_map,
             base_features,
             legacy_hot_features,
+            hot_tokens=hot_tokens,
+            hot_token_features=hot_token_features
         ):
             glyphs = shape_run(hb_font, text, feats)
             color = theme["stress"] if is_hot else theme["body"]

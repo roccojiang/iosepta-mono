@@ -75,7 +75,9 @@ interface VariantDataParser {
 
 interface HotCharsResult {
 	hotChars: string[];
+	hotTokens: string[];
 	hotCharFeatures: Record<string, Record<string, number>>;
+	hotTokenFeatures: Record<string, Record<string, number>>;
 }
 
 interface FeaturesOptions {
@@ -120,8 +122,9 @@ async function main(): Promise<void> {
 
 	// Load build plan
 	const buildPlanToml = fs.readFileSync(planFile, "utf8");
-	const buildPlan = toml.parse(buildPlanToml) as BuildPlans;
-	const plan = buildPlan.buildPlans[planName];
+	const planData = toml.parse(buildPlanToml) as BuildPlans;
+	const buildPlans = planData.buildPlans || {};
+	const plan = buildPlans[planName];
 	if (!plan) {
 		console.error(`Build plan "${planName}" not found`);
 		process.exit(1);
@@ -133,6 +136,60 @@ async function main(): Promise<void> {
 			[planName]: plan.variants,
 		},
 	});
+
+	/**
+	 * Recursively resolves variants.inherits into merged design configs.
+	 * Handles: string, array, and "buildPlans.X" references.
+	 * Returns an array of resolved configs to be merged in order.
+	 */
+	function resolveInherits(
+		inherits: string | string[] | undefined,
+		varDatRaw: VariantDataRaw,
+		buildPlans: Record<string, BuildPlan>,
+		slope?: "upright" | "italic" | "oblique"
+	): Record<string, string>[] {
+		if (!inherits) return [];
+
+		const names = Array.isArray(inherits) ? inherits : [inherits];
+		return names.flatMap(name => {
+			if (name.startsWith("buildPlans.")) {
+				// Resolve from private-build-plans.toml
+				const planName = name.slice("buildPlans.".length);
+				const refPlan = buildPlans[planName];
+				if (!refPlan) throw new Error(`Cannot find build plan: ${planName}`);
+
+				// Recursively resolve that plan's inherits
+				const bases = resolveInherits(
+					refPlan.variants?.inherits,
+					varDatRaw,
+					buildPlans,
+					slope
+				);
+
+				// Merge: bases + refPlan.variants.design + refPlan.variants[slope]
+				const planDesign = refPlan.variants?.design ?? {};
+				const planSlope = slope ? (refPlan.variants?.[slope] ?? {}) : {};
+				return [...bases, Object.assign({}, planDesign, planSlope)];
+			}
+
+			// It's a composite name (e.g., "ss18", "slab")
+			const comp = varDatRaw.composite?.[name];
+			if (!comp) throw new Error(`Cannot find composite: ${name}`);
+
+			// Recursively resolve the composite's own inherits (from variants.toml)
+			const parentCfgs = resolveInherits(
+				(comp as any).inherits,
+				varDatRaw,
+				buildPlans,
+				slope
+			);
+
+			// Merge: parents + comp.design + comp[slope]
+			const compDesign = comp.design ?? {};
+			const compSlope = slope ? (comp[slope] ?? {}) : {};
+			return [...parentCfgs, Object.assign({}, compDesign, compSlope)];
+		});
+	}
 
 	function featuresFromOverrides(
 		parsed: ParsedVariantData,
@@ -190,21 +247,25 @@ async function main(): Promise<void> {
 			slope === "italic" ? varDatRaw.default.italic : varDatRaw.default.upright;
 		if (defaultSlope) Object.assign(defaultCfg, defaultSlope);
 
-		// 2. Custom: ss18 base + build plan overrides
-		const ss18 = varDatRaw.composite.ss18;
-		const customCfg: Record<string, string> = { ...ss18.design };
-		const ss18Slope =
-			slope === "italic" ? ss18.italic : ss18.upright || ss18["upright-oblique"];
-		if (ss18Slope) Object.assign(customCfg, ss18Slope);
-		const planDesign = plan.variants.design;
-		if (planDesign) Object.assign(customCfg, planDesign);
+		// 2. Resolve what inherits provides on top of Iosevka defaults
+		const inherits = plan.variants?.inherits;
+		const baseParts = resolveInherits(inherits, varDatRaw, buildPlans, slope);
+		const inheritedCfg = Object.assign({}, ...baseParts);
+
+		// Build the base config: default + inherited
+		const baseCfg = { ...defaultCfg };
+		Object.assign(baseCfg, inheritedCfg);
+
+		// 3. Build the custom config: base + plan overrides
+		const customCfg = { ...baseCfg };
+		if (plan.variants?.design) Object.assign(customCfg, plan.variants.design);
 		const planSlope =
 			slope === "italic"
-				? plan.variants.italic
-				: plan.variants.upright || plan.variants["upright-oblique"];
+				? plan.variants?.italic
+				: plan.variants?.upright || plan.variants?.["upright-oblique"];
 		if (planSlope) Object.assign(customCfg, planSlope);
 
-		// 3. Diff
+		// 4. Diff customCfg vs defaultCfg (shows all changes from baseline Iosevka, including inherited ss18)
 		const hotChars: string[] = [];
 		const hotCharFeatures: Record<string, Record<string, number>> = {};
 		for (const [primeKey, variantKey] of Object.entries(customCfg)) {
@@ -224,7 +285,32 @@ async function main(): Promise<void> {
 				}
 			}
 		}
-		return { hotChars, hotCharFeatures };
+
+		// Separate single-char and multi-char hot items
+		const singleCharHots: string[] = [];
+		const multiCharTokens: string[] = [];
+		const tokenFeatures: Record<string, Record<string, number>> = {};
+
+		for (const ch of hotChars) {
+			if (ch.length === 1) {
+				singleCharHots.push(ch);
+			} else {
+				multiCharTokens.push(ch);
+				if (hotCharFeatures[ch]) {
+					tokenFeatures[ch] = hotCharFeatures[ch];
+				}
+			}
+		}
+
+		// Sort tokens by descending length for greedy matching
+		multiCharTokens.sort((a, b) => b.length - a.length);
+
+		return {
+			hotChars: singleCharHots,
+			hotTokens: multiCharTokens,
+			hotCharFeatures,
+			hotTokenFeatures: tokenFeatures,
+		};
 	}
 
 	const uprightResult = computeHotCharsSimple("upright");
@@ -235,9 +321,19 @@ async function main(): Promise<void> {
 		italic: italicResult.hotChars,
 	};
 
+	const hotTokens = {
+		upright: uprightResult.hotTokens,
+		italic: italicResult.hotTokens,
+	};
+
 	const hotCharFeatures = {
 		upright: uprightResult.hotCharFeatures,
 		italic: italicResult.hotCharFeatures,
+	};
+
+	const hotTokenFeatures = {
+		upright: uprightResult.hotTokenFeatures,
+		italic: italicResult.hotTokenFeatures,
 	};
 
 	const textGrid: string[][] = [
@@ -247,9 +343,17 @@ async function main(): Promise<void> {
 		["g9q¶ Þẞðþſß ΓΔΛαβγδηθικλμνξπτυφχψ", "ЖЗКНРУЭЯавжзклмнруфчьыэя <= != =="],
 	];
 
-	const baseFeatures: Record<string, number> = {
-		ss18: 1,
-	};
+	// Derive baseFeatures from resolved inherits
+	const baseFeatures: Record<string, number> = {};
+	const inherits = plan.variants?.inherits;
+	const inheritNames = Array.isArray(inherits) ? inherits : inherits ? [inherits] : [];
+	for (const name of inheritNames) {
+		if (name.startsWith("buildPlans.")) continue; // Build plan refs don't have ssNN tags
+		const comp = varDatRaw.composite?.[name];
+		if (comp && (comp as any).tag) {
+			baseFeatures[(comp as any).tag] = 1; // e.g., { ss18: 1 } or { ss18: 1, cv99: 1 }
+		}
+	}
 	const overrideFeatures = featuresFromOverrides(parsed, plan.variants, {
 		skipTags: new Set(Object.keys(baseFeatures)),
 	});
@@ -262,11 +366,13 @@ async function main(): Promise<void> {
 		textGrid,
 		baseFeatures,
 		hotCharFeatures,
+		hotTokenFeatures,
 		features: {
 			...baseFeatures,
 			...overrideFeatures,
 		},
 		hotChars,
+		hotTokens,
 		themes: {
 			light: { body: "#20242E", stress: "#048FBF" },
 			dark: { body: "#DEE4E3", stress: "#03AEE9" },
