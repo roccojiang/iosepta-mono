@@ -26,6 +26,8 @@ interface BuildPlans {
 }
 
 interface CompositeConfig {
+	tag?: string;
+	inherits?: string | string[];
 	design?: Record<string, string>;
 	upright?: Record<string, string>;
 	"upright-oblique"?: Record<string, string>;
@@ -141,29 +143,33 @@ async function main(): Promise<void> {
 	 * Recursively resolves variants.inherits into merged design configs.
 	 * Handles: string, array, and "buildPlans.X" references.
 	 * Returns an array of resolved configs to be merged in order.
+	 * Closes over varDatRaw and buildPlans from outer scope.
 	 */
 	function resolveInherits(
 		inherits: string | string[] | undefined,
-		varDatRaw: VariantDataRaw,
-		buildPlans: Record<string, BuildPlan>,
-		slope?: "upright" | "italic" | "oblique"
+		slope?: "upright" | "italic" | "oblique",
+		visited: Set<string> = new Set()
 	): Record<string, string>[] {
 		if (!inherits) return [];
 
 		const names = Array.isArray(inherits) ? inherits : [inherits];
 		return names.flatMap(name => {
+			// Cycle detection
+			if (visited.has(name)) {
+				throw new Error(`Circular inherits detected: ${name} is already in the resolution chain`);
+			}
+			visited.add(name);
 			if (name.startsWith("buildPlans.")) {
 				// Resolve from private-build-plans.toml
-				const planName = name.slice("buildPlans.".length);
-				const refPlan = buildPlans[planName];
-				if (!refPlan) throw new Error(`Cannot find build plan: ${planName}`);
+				const refPlanName = name.slice("buildPlans.".length);
+				const refPlan = buildPlans[refPlanName];
+				if (!refPlan) throw new Error(`Cannot find build plan: ${refPlanName}`);
 
 				// Recursively resolve that plan's inherits
 				const bases = resolveInherits(
 					refPlan.variants?.inherits,
-					varDatRaw,
-					buildPlans,
-					slope
+					slope,
+					visited
 				);
 
 				// Merge: bases + refPlan.variants.design + refPlan.variants[slope]
@@ -178,10 +184,9 @@ async function main(): Promise<void> {
 
 			// Recursively resolve the composite's own inherits (from variants.toml)
 			const parentCfgs = resolveInherits(
-				(comp as any).inherits,
-				varDatRaw,
-				buildPlans,
-				slope
+				comp.inherits,
+				slope,
+				visited
 			);
 
 			// Merge: parents + comp.design + comp[slope]
@@ -249,7 +254,7 @@ async function main(): Promise<void> {
 
 		// 2. Resolve what inherits provides on top of Iosevka defaults
 		const inherits = plan.variants?.inherits;
-		const baseParts = resolveInherits(inherits, varDatRaw, buildPlans, slope);
+		const baseParts = resolveInherits(inherits, slope);
 		const inheritedCfg = Object.assign({}, ...baseParts);
 
 		// Build the base config: default + inherited
@@ -289,11 +294,15 @@ async function main(): Promise<void> {
 		// Separate single-char and multi-char hot items
 		const singleCharHots: string[] = [];
 		const multiCharTokens: string[] = [];
+		const singleCharFeatures: Record<string, Record<string, number>> = {};
 		const tokenFeatures: Record<string, Record<string, number>> = {};
 
 		for (const ch of hotChars) {
 			if (ch.length === 1) {
 				singleCharHots.push(ch);
+				if (hotCharFeatures[ch]) {
+					singleCharFeatures[ch] = hotCharFeatures[ch];
+				}
 			} else {
 				multiCharTokens.push(ch);
 				if (hotCharFeatures[ch]) {
@@ -308,7 +317,7 @@ async function main(): Promise<void> {
 		return {
 			hotChars: singleCharHots,
 			hotTokens: multiCharTokens,
-			hotCharFeatures,
+			hotCharFeatures: singleCharFeatures,
 			hotTokenFeatures: tokenFeatures,
 		};
 	}
@@ -350,8 +359,8 @@ async function main(): Promise<void> {
 	for (const name of inheritNames) {
 		if (name.startsWith("buildPlans.")) continue; // Build plan refs don't have ssNN tags
 		const comp = varDatRaw.composite?.[name];
-		if (comp && (comp as any).tag) {
-			baseFeatures[(comp as any).tag] = 1; // e.g., { ss18: 1 } or { ss18: 1, cv99: 1 }
+		if (comp?.tag) {
+			baseFeatures[comp.tag] = 1; // e.g., { ss18: 1 } or { ss18: 1, cv99: 1 }
 		}
 	}
 	const overrideFeatures = featuresFromOverrides(parsed, plan.variants, {
