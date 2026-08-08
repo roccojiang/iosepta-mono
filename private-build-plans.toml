@@ -67,6 +67,44 @@ exportGlyphNames = false  # set to true if Kitty ligature support is needed
   percent = "rings-segmented-slash"
   lig-ltgteq = "slanted"
 
+  [buildPlans.IoseptaMono.ligations]
+  inherits = "default-calt"
+  # For reference, these are the defaults as defined upstream in the default-calt set:
+  # enables = [
+  #   '--default-center-ops--',
+  #   '--default-equality-inequality--',  # [ 'eqeq', 'exeq', 'lteq', 'gteq' ]
+  #   '--default-kern--',  # [ 'kern-dotty', 'kern-bars' ]
+  #   '--default-chaining--',  # [ 'plus-plus-plus', 'minus-minus-minus', 'underscore-underscore-underscore', 'hash-hash-hash', 'tilde-tilde-tilde' ]
+  #   'arrow-l', 'arrow-r', 'arrow-lr',
+  #   'html-comment',
+  #   'ltgt-diamond-tag',
+  #   'ltgt-slash-tag',
+  #   'trig',
+  #   'slash-asterisk',
+  #   'llgg',
+  #   'llggeq',
+  # ]
+  #
+  # These are (mostly?) redundant entries that are already inherited from default-calt,
+  # but I'd rather be explicit about what I'm enabling
+  enables = [
+    "ltgt-slash-tag",     # </, </>, />
+    "trig",               # <|, <|>, |>
+    "slash-asterisk",     # /*, */
+    "llgg",               # <<, >>
+    "llggeq",             # <<=, >>=
+  ]
+  disables = [
+    "eqeq",              # ==, ===
+    "exeq",              # !=, !==, !===
+    "lteq",              # <=
+    "gteq",              # >=
+    "arrow-l",           # <--, <==, <~~
+    "arrow-lr",          # <->, <=>, <~>
+    "arrow-r",           # -->, ==>, ~~>
+    "html-comment",      # <!--
+    "ltgt-diamond-tag",  # <>
+  ]
 
 # Normal spacing, without ligatures
 [buildPlans.IoseptaMonoNoLig]
