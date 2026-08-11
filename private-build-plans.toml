@@ -106,6 +106,7 @@ exportGlyphNames = false  # set to true if Kitty ligature support is needed
     "ltgt-diamond-tag",  # <>
   ]
 
+
 # Normal spacing, without ligatures
 [buildPlans.IoseptaMonoNoLig]
 family = "Iosepta Mono NoLig"
@@ -153,6 +154,28 @@ variants.inherits = "buildPlans.IoseptaMono"
   # Same xHeight as above
   [buildPlans.IoseptaMonoTerm.metricOverride]
   xHeight = 540
+
+  # Same ligations overrides as IoseptaMono
+  [buildPlans.IoseptaMonoTerm.ligations]
+  inherits = "default-calt"
+  enables = [
+    "ltgt-slash-tag",     # </, </>, />
+    "trig",               # <|, <|>, |>
+    "slash-asterisk",     # /*, */
+    "llgg",               # <<, >>
+    "llggeq",             # <<=, >>=
+  ]
+  disables = [
+    "eqeq",              # ==, ===
+    "exeq",              # !=, !==, !===
+    "lteq",              # <=
+    "gteq",              # >=
+    "arrow-l",           # <--, <==, <~~
+    "arrow-lr",          # <->, <=>, <~>
+    "arrow-r",           # -->, ==>, ~~>
+    "html-comment",      # <!--
+    "ltgt-diamond-tag",  # <>
+  ]
 
 
 # Terminal spacing, without ligatures
