@@ -5,6 +5,7 @@ permissions: {}
 on:
   pull_request:
     types: [opened, edited, synchronize]
+  workflow_dispatch:
 
 jobs:
   validate-title:
